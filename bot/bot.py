@@ -29,12 +29,12 @@ import openai_utils
 db = database.Database()
 logger = logging.getLogger(__name__)
 
-HELP_MESSAGE = """Commands:
-⚪ /retry – Regenerate last bot answer
-⚪ /new – Start new dialog
-⚪ /mode – Select chat mode
-⚪ /balance – Show balance
-⚪ /help – Show help
+HELP_MESSAGE = """命令:
+⚪ /retry – 重新生成最后一个回答
+⚪ /new – 开始一个新的对话
+⚪ /mode – 选择模式
+⚪ /balance – 显示余额
+⚪ /help – 显示帮助
 """
 
 
@@ -65,10 +65,10 @@ async def start_handle(update: Update, context: CallbackContext):
     db.set_user_attribute(user_id, "last_interaction", datetime.now())
     db.start_new_dialog(user_id)
     
-    reply_text = "Hi! I'm <b>ChatGPT</b> bot implemented with GPT-3.5 OpenAI API 🤖\n\n"
+    reply_text = "你好! 我是 <b>ChatGPT</b> 机器人，我使用GPT-3.5 OpenAI API实现 🤖\n\n"
     reply_text += HELP_MESSAGE
 
-    reply_text += "\nAnd now... ask me anything!"
+    reply_text += "\n现在... 问我任何事情吧！"
     
     await update.message.reply_text(reply_text, parse_mode=ParseMode.HTML)
 
@@ -87,7 +87,7 @@ async def retry_handle(update: Update, context: CallbackContext):
 
     dialog_messages = db.get_dialog_messages(user_id, dialog_id=None)
     if len(dialog_messages) == 0:
-        await update.message.reply_text("No message to retry 🤷‍♂️")
+        await update.message.reply_text("没有消息需要重试 🤷‍♂️")
         return
 
     last_dialog_message = dialog_messages.pop()
@@ -110,7 +110,7 @@ async def message_handle(update: Update, context: CallbackContext, message=None,
     if use_new_dialog_timeout:
         if (datetime.now() - db.get_user_attribute(user_id, "last_interaction")).seconds > config.new_dialog_timeout and len(db.get_dialog_messages(user_id)) > 0:
             db.start_new_dialog(user_id)
-            await update.message.reply_text(f"Starting new dialog due to timeout (<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> mode) ✅", parse_mode=ParseMode.HTML)
+            await update.message.reply_text(f"因为超时，开始一个新的对话 (<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> mode) ✅", parse_mode=ParseMode.HTML)
     db.set_user_attribute(user_id, "last_interaction", datetime.now())
 
     # send typing action
@@ -140,7 +140,7 @@ async def message_handle(update: Update, context: CallbackContext, message=None,
         db.set_user_attribute(user_id, "n_used_tokens", n_used_tokens + db.get_user_attribute(user_id, "n_used_tokens"))
 
     except Exception as e:
-        error_text = f"Something went wrong during completion. Reason: {e}"
+        error_text = f"在完成过程中出了问题. 原因是: {e}"
         logger.error(error_text)
         await update.message.reply_text(error_text)
         return
@@ -148,9 +148,9 @@ async def message_handle(update: Update, context: CallbackContext, message=None,
     # send message if some messages were removed from the context
     if n_first_dialog_messages_removed > 0:
         if n_first_dialog_messages_removed == 1:
-            text = "✍️ <i>Note:</i> Your current dialog is too long, so your <b>first message</b> was removed from the context.\n Send /new command to start new dialog"
+            text = "✍️ <i>提醒:</i> 你现在的对话太长了，所以你的<b>第一条消息</b> 将被移除\n 发送 /new 开始一个新的对话"
         else:
-            text = f"✍️ <i>Note:</i> Your current dialog is too long, so <b>{n_first_dialog_messages_removed} first messages</b> were removed from the context.\n Send /new command to start new dialog"
+            text = f"✍️ <i>提醒:</i> 你现在的对话太长了，所以你的 <b>{n_first_dialog_messages_removed} 第一条消息</b> 将被移除\n 发送 /new 开始一个新的对话"
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
     # split answer into multiple messages due to 4096 character limit
@@ -241,7 +241,7 @@ async def set_chat_mode_handle(update: Update, context: CallbackContext):
     db.start_new_dialog(user_id)
 
     await query.edit_message_text(
-        f"<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> chat mode is set",
+        f"<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> 模式设置",
         parse_mode=ParseMode.HTML
     )
 
@@ -259,23 +259,23 @@ async def show_balance_handle(update: Update, context: CallbackContext):
     price_per_1000_tokens = config.chatgpt_price_per_1000_tokens if config.use_chatgpt_api else config.gpt_price_per_1000_tokens
     n_spent_dollars = n_used_tokens * (price_per_1000_tokens / 1000)
 
-    text = f"You spent <b>{n_spent_dollars:.03f}$</b>\n"
-    text += f"You used <b>{n_used_tokens}</b> tokens\n\n"
+    text = f"你已经耗费 <b>{n_spent_dollars:.03f}$</b>\n"
+    text += f"你已经使用 <b>{n_used_tokens}</b>个 token\n\n"
 
-    text += "🏷️ Prices\n"
-    text += f"<i>- ChatGPT: {price_per_1000_tokens}$ per 1000 tokens\n"
-    text += f"- Whisper (voice recognition): {config.whisper_price_per_1_min}$ per 1 minute</i>"
+    text += "🏷️ 价格\n"
+    text += f"<i>- ChatGPT: {price_per_1000_tokens}$/1000 tokens\n"
+    text += f"- Whisper (语音识别): {config.whisper_price_per_1_min}$/分钟</i>"
 
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 async def edited_message_handle(update: Update, context: CallbackContext):
-    text = "🥲 Unfortunately, message <b>editing</b> is not supported"
+    text = "🥲 不支持消息<b>编辑</b>"
     await update.edited_message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 async def error_handle(update: Update, context: CallbackContext) -> None:
-    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+    logger.error(msg="处理更新时出现异常:", exc_info=context.error)
 
     try:
         # collect error message
@@ -283,7 +283,7 @@ async def error_handle(update: Update, context: CallbackContext) -> None:
         tb_string = "".join(tb_list)
         update_str = update.to_dict() if isinstance(update, Update) else str(update)
         message = (
-            f"An exception was raised while handling an update\n"
+            f"处理更新时出现一个异常\n"
             f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
             "</pre>\n\n"
             f"<pre>{html.escape(tb_string)}</pre>"
